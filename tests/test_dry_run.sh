@@ -13,7 +13,7 @@ assert_fails_with() {
 
   local output=""
   local status=0
-  output="$($@ 2>&1)" || status=$?
+  output="$("$@" 2>&1)" || status=$?
 
   if [[ "$status" == "0" ]]; then
     echo "Expected command to fail, but it succeeded." >&2
@@ -26,14 +26,16 @@ assert_fails_with() {
 tmpdir="$(mktemp -d /tmp/agw-test-XXXXXX)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-cd "$tmpdir"
+workdir="$tmpdir/work"
+mkdir -p "$workdir"
+cd "$workdir"
 git init --initial-branch=main >/dev/null
 git config user.name "AGW Test"
 git config user.email "agw-test@example.com"
 echo "# Test" > README.md
 git add README.md
 git commit -m "Initial commit" >/dev/null
-git init --bare --initial-branch=main origin.git >/dev/null
+git init --bare --initial-branch=main "$tmpdir/origin.git" >/dev/null
 git remote add origin "$tmpdir/origin.git"
 git push -u origin main >/dev/null
 
@@ -98,3 +100,28 @@ if git tag --list v0.1.0 | grep -q v0.1.0; then
   echo "Dry-run created a tag unexpectedly." >&2
   exit 1
 fi
+
+echo "dirty" > dirty.txt
+assert_fails_with "Error: working tree must be clean before this operation." \
+  agw_start_task --task T004 --slug dirty-tree-check --run
+rm dirty.txt
+
+assert_fails_with "Error: refusing to modify main directly." \
+  agw_commit_controlled_change --message "No direct main commit" --files README.md --run
+
+assert_fails_with "Error: refusing to modify main directly." \
+  agw_push_and_pr --run
+
+git tag -a v0.1.0 -m "v0.1.0 - existing local tag" >/dev/null
+assert_fails_with "Error: tag already exists locally: v0.1.0" \
+  agw_create_tag --tag v0.1.0 --note "Duplicate tag" --run
+
+git switch -c manual/T004-unmerged-cleanup >/dev/null
+echo "unmerged" > unmerged.txt
+git add unmerged.txt
+git commit -m "Unmerged cleanup test" >/dev/null
+git push -u origin manual/T004-unmerged-cleanup >/dev/null
+git switch main >/dev/null
+
+assert_fails_with "Error: refusing to delete remote branch that is not merged into origin/main: origin/manual/T004-unmerged-cleanup" \
+  agw_cleanup_branches --branch manual/T004-unmerged-cleanup --remote --run
