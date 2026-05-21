@@ -2,32 +2,74 @@
 
 ## Purpose
 
-Inspect the repository after Codex work and prepare for review.
+Review manual, ChatGPT-guided, Codex, or Codex CLI output before staging and committing changes.
 
 ## When to use
 
-TODO: Explain the exact cases where this workflow should be used.
+- After an AI assistant changes files.
+- After a manual editing session.
+- Before staging files for commit.
+- Before accepting a generated implementation.
 
 ## Preconditions
 
-TODO: Describe the required repository state, branch state, validation state, and documentation state.
+- The task objective is known.
+- The expected scope is known.
+- The repository contains unstaged or staged changes to review.
 
-## Function
-
-```text
-agw_review_codex_output [--run|-r]
-```
-
-## Commands and help
+## Commands
 
 <!-- AUTO-GENERATED:START workflow=review-codex-output -->
-TODO: Generated command/help block will be inserted here by `tools/generate_docs.py`.
+The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
 <!-- AUTO-GENERATED:END -->
+
+### Command sequence
+
+```bash
+git status --short | cat
+```
+Identify changed, deleted, staged, and untracked files.
+
+```bash
+git diff --stat | cat
+```
+Review the scale and distribution of changes.
+
+```bash
+git diff --name-only | cat
+```
+Review the exact file list.
+
+```bash
+git diff --check | cat
+```
+Detect whitespace errors and common patch issues.
+
+```bash
+git diff | cat
+```
+Review the full unstaged diff when needed.
+
+## Function usage
+
+```bash
+Planned function: agw_review_output [--run|-r]
+```
+
+## Parameters
+
+- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--help`: Show function help.
 
 ## Risks
 
-TODO: List workflow-specific risks.
+- AI output may include unrelated cleanup or refactoring.
+- Generated code may pass a superficial review but fail scope review.
+- Validation may be claimed but not actually run.
 
 ## Definition of done
 
-TODO: Define the expected final state after this workflow completes.
+- Changed files match the task scope.
+- No unrelated changes are present or they are explicitly split out.
+- Validation run/not-run is documented.
+- The change is ready for controlled staging or requires a fix.

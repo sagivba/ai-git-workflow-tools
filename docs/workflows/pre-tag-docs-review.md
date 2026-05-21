@@ -1,33 +1,71 @@
-# Workflow: Pre Tag Documentation Review
+# Workflow: Pre-Tag Documentation Review
 
 ## Purpose
 
-Review documentation and metadata before creating a release tag.
+Review documentation, metadata, validation status, and release notes before creating a tag.
 
 ## When to use
 
-TODO: Explain the exact cases where this workflow should be used.
+- Before every release or milestone tag.
+- After a meaningful PR or stage is merged.
+- Before starting a risky next stage.
 
 ## Preconditions
 
-TODO: Describe the required repository state, branch state, validation state, and documentation state.
+- The relevant PRs are merged.
+- Local `main` is synced.
+- The intended tag version is known.
+- The release note is known.
 
-## Function
+## Commands
 
-```text
+<!-- AUTO-GENERATED:START workflow=pre-tag-docs-review -->
+The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
+<!-- AUTO-GENERATED:END -->
+
+### Command sequence
+
+```bash
+agw_pre_tag_docs_review
+```
+Print the documentation and metadata checklist.
+
+```bash
+git status --short | cat
+```
+Verify no unexplained local changes exist.
+
+```bash
+git log --oneline --decorate -5 | cat
+```
+Verify the intended commit is at HEAD.
+
+```bash
+git tag --points-at HEAD | cat
+```
+Check whether HEAD is already tagged.
+
+## Function usage
+
+```bash
 agw_pre_tag_docs_review
 ```
 
-## Commands and help
+## Parameters
 
-<!-- AUTO-GENERATED:START workflow=pre-tag-docs-review -->
-TODO: Generated command/help block will be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
+- `--help`: Show function help.
 
 ## Risks
 
-TODO: List workflow-specific risks.
+- Tagging before documentation review creates a misleading release checkpoint.
+- TODO or status files can drift from actual repository state.
+- Validation gaps can be forgotten after tagging.
 
 ## Definition of done
 
-TODO: Define the expected final state after this workflow completes.
+- README reflects current state.
+- TODO or status source is updated.
+- Workflow or stage documentation is updated.
+- Validation run/not-run is documented.
+- Known risks and limitations are documented.
+- The intended tag note is clear.
