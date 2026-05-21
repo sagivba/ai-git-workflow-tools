@@ -88,6 +88,15 @@ if git branch --list codex-cli/dry-run-test | grep -q codex-cli/dry-run-test; th
   exit 1
 fi
 
+output="$(agw_review_output)"
+assert_contains "$output" "+ git branch --show-current"
+assert_contains "$output" "+ git status --short"
+assert_contains "$output" "+ git diff --name-status"
+
+legacy_output="$(agw_review_codex_output)"
+assert_contains "$legacy_output" "+ git branch --show-current"
+assert_contains "$legacy_output" "+ git diff --name-status"
+
 output="$(agw_create_tag --tag v0.1.0 --note "Dry run tag")"
 assert_contains "$output" "+ git tag -a v0.1.0"
 

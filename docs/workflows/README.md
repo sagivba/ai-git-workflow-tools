@@ -2,7 +2,7 @@
 
 This document describes the high-level AI-assisted Git and GitHub workflow used by this repository.
 
-The goal is to turn repeated Git, GitHub, ChatGPT, and Codex working patterns into documented, reusable, and testable workflows.
+The goal is to turn repeated Git, GitHub, ChatGPT, manually applied task ZIPs, and other AI-assisted working patterns into documented, reusable, and testable workflows.
 
 ## Core principles
 
@@ -51,7 +51,7 @@ The task should answer:
 - What is out of scope?
 - Which files or areas are expected to change?
 - What validation is required?
-- Is this manual work, ChatGPT-guided work, or Codex/Codex CLI work?
+- Is this manual work, ChatGPT-guided work, Codex/Codex CLI work, or another assisted workflow?
 
 This repository does not currently provide a Bash function for planning, because planning is a reasoning step.
 
@@ -105,7 +105,7 @@ docs/workflows/inspect-git-state.md
 
 ### 4. Review output
 
-Use this workflow after manual edits, ChatGPT-guided edits, or Codex/Codex CLI work.
+Use this workflow after manual edits, ChatGPT-guided edits, generated ZIP extraction, Codex/Codex CLI work, or other assisted work.
 
 The review checks:
 
@@ -118,6 +118,12 @@ The review checks:
 - Is documentation updated when needed?
 
 Detailed documentation:
+
+```text
+docs/workflows/review-output.md
+```
+
+Legacy Codex-specific review documentation remains available for compatibility:
 
 ```text
 docs/workflows/review-codex-output.md
@@ -239,9 +245,16 @@ Examples:
 agw_help
 agw_inspect_git_state
 agw_start_task
-agw_start_codex_task
+agw_review_output
 agw_pre_tag_docs_review
 agw_create_tag
+```
+
+Legacy compatibility functions remain available:
+
+```bash
+agw_start_codex_task
+agw_review_codex_output
 ```
 
 ## Execution model
@@ -328,14 +341,15 @@ The first useful version of this repository should cover:
 
 1. `agw_inspect_git_state`
 2. `agw_start_task`
-3. `agw_start_codex_task`
-4. `agw_review_output`
-5. `agw_commit_controlled_change`
-6. `agw_push_branch`
-7. `agw_post_merge_sync`
-8. `agw_cleanup_branches`
-9. `agw_pre_tag_docs_review`
-10. `agw_create_tag`
+3. `agw_review_output`
+4. `agw_commit_controlled_change`
+5. `agw_push_and_pr`
+6. `agw_post_merge_sync`
+7. `agw_cleanup_branches`
+8. `agw_pre_tag_docs_review`
+9. `agw_create_tag`
+
+Compatibility helpers such as `agw_start_codex_task` and `agw_review_codex_output` should continue to work, but they are not the primary API for new workflows.
 
 ## Definition of done for this overview
 

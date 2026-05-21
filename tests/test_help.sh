@@ -9,7 +9,9 @@ source "$ROOT/scripts/ai-git-workflows.sh"
 
 functions=(
   agw_inspect_git_state
+  agw_start_task
   agw_start_codex_task
+  agw_review_output
   agw_review_codex_output
   agw_commit_controlled_change
   agw_push_and_pr
@@ -25,6 +27,14 @@ for fn in "${functions[@]}"; do
   assert_contains "$output" "Usage:"
   assert_contains "$output" "Docs:"
 done
+
+output="$(agw_help)"
+assert_contains "$output" "agw_review_output"
+assert_contains "$output" "agw_review_codex_output"
+assert_contains "$output" "New generic workflows should prefer"
+
+output="$(agw_review_codex_output --help)"
+assert_contains "$output" "Prefer agw_review_output"
 
 output="$(agw_create_tag --help)"
 assert_contains "$output" "--run, -r"
