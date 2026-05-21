@@ -11,18 +11,24 @@ tmpdir="$(mktemp -d /tmp/agw-test-XXXXXX)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 cd "$tmpdir"
-git init -b main >/dev/null
+git init --initial-branch=main >/dev/null
 git config user.name "AGW Test"
 git config user.email "agw-test@example.com"
 echo "# Test" > README.md
 git add README.md
 git commit -m "Initial commit" >/dev/null
-git init --bare origin.git >/dev/null
+git init --bare --initial-branch=main origin.git >/dev/null
 git remote add origin "$tmpdir/origin.git"
 git push -u origin main >/dev/null
 
 output="$(agw_start_codex_task --branch codex-cli/dry-run-test)"
-assert_contains "$output" "git"
+assert_contains "$output" "+ git fetch --prune origin"
+assert_contains "$output" "+ git switch main"
+
+if printf '%s\n' "$output" | grep -Fq "git+ fetch"; then
+  echo "Dry-run output contains unreadable plus-separated command text." >&2
+  exit 1
+fi
 
 if git branch --list codex-cli/dry-run-test | grep -q codex-cli/dry-run-test; then
   echo "Dry-run created a branch unexpectedly." >&2
@@ -30,7 +36,12 @@ if git branch --list codex-cli/dry-run-test | grep -q codex-cli/dry-run-test; th
 fi
 
 output="$(agw_create_tag --tag v0.1.0 --note "Dry run tag")"
-assert_contains "$output" "git"
+assert_contains "$output" "+ git tag -a v0.1.0"
+
+if printf '%s\n' "$output" | grep -Fq "git+ tag"; then
+  echo "Dry-run output contains unreadable plus-separated tag command text." >&2
+  exit 1
+fi
 
 if git tag --list v0.1.0 | grep -q v0.1.0; then
   echo "Dry-run created a tag unexpectedly." >&2
