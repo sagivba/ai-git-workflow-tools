@@ -18,12 +18,26 @@ agw__is_run_mode() {
   return 1
 }
 
+agw__print_cmd() {
+  local first=1
+  printf '+'
+  local arg
+  for arg in "$@"; do
+    if [[ "$first" == "1" ]]; then
+      printf ' %q' "$arg"
+      first=0
+    else
+      printf ' %q' "$arg"
+    fi
+  done
+  printf '\n'
+}
+
 agw__run_cmd() {
   local run_mode="$1"
   shift
 
-  printf '+ %q' "$@"
-  printf '\n'
+  agw__print_cmd "$@"
 
   if [[ "$run_mode" == "1" ]]; then
     "$@"
