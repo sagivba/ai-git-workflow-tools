@@ -4,6 +4,7 @@
 
 set -o pipefail
 
+AGW_TOOL_VERSION="${AGW_TOOL_VERSION:-v0.6.0-dev}"
 AGW_DOC_BASE_URL="${AGW_DOC_BASE_URL:-https://github.com/sagivba/ai-git-workflow-tools/blob/main}"
 
 agw__is_run_mode() {
@@ -47,6 +48,26 @@ agw__require_git_repo() {
 
 agw__current_branch() {
   git branch --show-current
+}
+
+agw__tool_root() {
+  if [[ -n "${AGW_TOOL_ROOT:-}" ]]; then
+    printf '%s\n' "$AGW_TOOL_ROOT"
+    return 0
+  fi
+
+  local script_path="${BASH_SOURCE[0]}"
+  local script_dir
+  script_dir="$(cd "$(dirname "$script_path")" && pwd)" || return 1
+  cd "$script_dir/.." && pwd
+}
+
+agw__tool_git_ref() {
+  local root="$1"
+
+  if [[ -d "$root/.git" || -f "$root/.git" ]]; then
+    git -C "$root" describe --tags --always --dirty 2>/dev/null || true
+  fi
 }
 
 agw__require_clean_worktree() {
@@ -202,6 +223,8 @@ ai-git-workflow-tools
 
 Available functions:
 
+  agw_version
+  agw_status
   agw_inspect_git_state
   agw_start_task
   agw_start_codex_task
@@ -233,6 +256,9 @@ Compatibility note:
 
 Examples:
 
+  agw_version
+  agw_status
+
   agw_inspect_git_state
   agw_inspect_git_state --run
 
@@ -244,6 +270,101 @@ Examples:
 
   agw_create_tag --tag v1.0.0 --note "Initial stable workflow baseline" --run
 EOF_HELP
+}
+
+# @workflow version
+# @title Show tool version
+# @doc docs/workflows/version.md
+# @summary Show loaded ai-git-workflow-tools version and source path.
+# @usage agw_version [--help]
+# @safe-default read-only
+# @requires none
+agw_version() {
+  if [[ "${1:-}" == "--help" ]]; then
+    cat <<EOF_HELP
+agw_version
+
+Purpose:
+  Show the loaded ai-git-workflow-tools version and source path.
+
+Usage:
+  agw_version
+
+Options:
+  --help   Show this help.
+
+Output:
+  tool version
+  loaded script path
+  tool root
+  tool git ref, when available
+
+Docs:
+  ${AGW_DOC_BASE_URL}/docs/workflows/version.md
+EOF_HELP
+    return 0
+  fi
+
+  local root
+  root="$(agw__tool_root)" || return 1
+
+  local ref
+  ref="$(agw__tool_git_ref "$root")"
+
+  echo "ai-git-workflow-tools"
+  echo "version: ${AGW_TOOL_VERSION}"
+  echo "script: ${BASH_SOURCE[0]}"
+  echo "tool_root: ${root}"
+  if [[ -n "$ref" ]]; then
+    echo "tool_git_ref: ${ref}"
+  else
+    echo "tool_git_ref: unavailable"
+  fi
+}
+
+# @workflow status
+# @title Show workflow status
+# @doc docs/workflows/status.md
+# @summary Show loaded tool information and current repository state.
+# @usage agw_status [--help]
+# @safe-default read-only
+# @requires git
+agw_status() {
+  if [[ "${1:-}" == "--help" ]]; then
+    cat <<EOF_HELP
+agw_status
+
+Purpose:
+  Show loaded tool information and current repository state.
+
+Usage:
+  agw_status
+
+Options:
+  --help   Show this help.
+
+Output:
+  agw_version output
+  current repository root
+  current branch
+  current HEAD
+  short Git status
+
+Docs:
+  ${AGW_DOC_BASE_URL}/docs/workflows/status.md
+EOF_HELP
+    return 0
+  fi
+
+  agw__require_git_repo || return 1
+
+  agw_version
+  echo
+  echo "current_repository: $(git rev-parse --show-toplevel)"
+  echo "current_branch: $(git branch --show-current)"
+  echo "current_head: $(git rev-parse --short HEAD)"
+  echo "current_status:"
+  git status --short
 }
 
 # @workflow inspect-git-state

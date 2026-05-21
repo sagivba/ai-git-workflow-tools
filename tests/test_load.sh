@@ -14,7 +14,13 @@ source "$ROOT/scripts/load-agw.sh"
 type agw_help >/dev/null
 type agw_start_task >/dev/null
 type agw_review_output >/dev/null
+type agw_version >/dev/null
+type agw_status >/dev/null
 
 help_output="$(agw_help)"
 assert_contains "$help_output" "agw_start_task"
 assert_contains "$help_output" "agw_review_output"
+assert_contains "$help_output" "agw_version"
+
+version_output="$(agw_version)"
+assert_contains "$version_output" "tool_root: $ROOT"

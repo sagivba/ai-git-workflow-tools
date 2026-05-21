@@ -8,6 +8,8 @@ source "$ROOT/tests/lib/assert.sh"
 source "$ROOT/scripts/ai-git-workflows.sh"
 
 functions=(
+  agw_version
+  agw_status
   agw_inspect_git_state
   agw_start_task
   agw_start_codex_task
@@ -29,9 +31,16 @@ for fn in "${functions[@]}"; do
 done
 
 output="$(agw_help)"
+assert_contains "$output" "agw_version"
+assert_contains "$output" "agw_status"
 assert_contains "$output" "agw_review_output"
 assert_contains "$output" "agw_review_codex_output"
 assert_contains "$output" "New generic workflows should prefer"
+
+output="$(agw_version)"
+assert_contains "$output" "ai-git-workflow-tools"
+assert_contains "$output" "version:"
+assert_contains "$output" "tool_root:"
 
 output="$(agw_review_codex_output --help)"
 assert_contains "$output" "Prefer agw_review_output"
