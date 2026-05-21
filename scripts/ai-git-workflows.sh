@@ -186,6 +186,16 @@ agw__start_task_branch() {
   agw__run_cmd "$run_mode" git switch -c "$branch"
 }
 
+agw__review_output_commands() {
+  local run_mode="$1"
+
+  agw__run_cmd "$run_mode" git branch --show-current
+  agw__run_cmd "$run_mode" git status --short
+  agw__run_cmd "$run_mode" git diff --stat
+  agw__run_cmd "$run_mode" git diff --name-status
+  agw__run_cmd "$run_mode" git diff --check
+}
+
 agw_help() {
   cat <<'EOF_HELP'
 ai-git-workflow-tools
@@ -195,6 +205,7 @@ Available functions:
   agw_inspect_git_state
   agw_start_task
   agw_start_codex_task
+  agw_review_output
   agw_review_codex_output
   agw_commit_controlled_change
   agw_push_and_pr
@@ -215,6 +226,11 @@ Safety guards in --run mode:
   - Branch cleanup refuses protected or unmerged branches.
   - Tag creation refuses duplicate local or remote tags.
 
+Compatibility note:
+
+  agw_start_codex_task and agw_review_codex_output remain available for existing workflows.
+  New generic workflows should prefer agw_start_task and agw_review_output.
+
 Examples:
 
   agw_inspect_git_state
@@ -223,8 +239,8 @@ Examples:
   agw_start_task --task T003 --slug improve-task-start-workflow
   agw_start_task --task T003 --slug improve-task-start-workflow --run
 
-  agw_start_codex_task --branch codex-cli/my-task
-  agw_start_codex_task --branch codex-cli/my-task --run
+  agw_review_output
+  agw_review_output --run
 
   agw_create_tag --tag v1.0.0 --note "Initial stable workflow baseline" --run
 EOF_HELP
@@ -410,6 +426,10 @@ Options:
 Rules:
   In --run mode, the working tree must be clean.
 
+Compatibility:
+  This function is retained for existing Codex-specific workflows.
+  Prefer agw_start_task for new generic/manual task branches.
+
 Commands:
   git fetch --prune origin
   git switch main
@@ -454,10 +474,55 @@ EOF_HELP
   agw__start_task_branch "$branch" "codex-cli/" "$run_mode"
 }
 
+# @workflow review-output
+# @title Review output
+# @doc docs/workflows/review-output.md
+# @summary Inspect repository state after manual or AI-assisted work and prepare for review.
+# @usage agw_review_output [--run|-r]
+# @safe-default dry-run
+# @requires git
+agw_review_output() {
+  if [[ "${1:-}" == "--help" ]]; then
+    cat <<EOF_HELP
+agw_review_output
+
+Purpose:
+  Review repository changes after manual or AI-assisted work.
+
+Usage:
+  agw_review_output [--run|-r]
+
+Options:
+  --run, -r   Execute commands. Without this flag, commands are printed only.
+  --help      Show this help.
+
+Commands:
+  git branch --show-current
+  git status --short
+  git diff --stat
+  git diff --name-status
+  git diff --check
+
+Docs:
+  ${AGW_DOC_BASE_URL}/docs/workflows/review-output.md
+EOF_HELP
+    return 0
+  fi
+
+  agw__require_git_repo || return 1
+
+  local run_mode=0
+  if agw__is_run_mode "$@"; then
+    run_mode=1
+  fi
+
+  agw__review_output_commands "$run_mode"
+}
+
 # @workflow review-codex-output
 # @title Review Codex output
 # @doc docs/workflows/review-codex-output.md
-# @summary Inspect repository state after Codex work and prepare for review.
+# @summary Compatibility wrapper for reviewing Codex output; prefer agw_review_output for new workflows.
 # @usage agw_review_codex_output [--run|-r]
 # @safe-default dry-run
 # @requires git
@@ -467,7 +532,7 @@ agw_review_codex_output() {
 agw_review_codex_output
 
 Purpose:
-  Review the repository after Codex has made changes.
+  Review repository changes after Codex or Codex CLI work.
 
 Usage:
   agw_review_codex_output [--run|-r]
@@ -475,6 +540,10 @@ Usage:
 Options:
   --run, -r   Execute commands. Without this flag, commands are printed only.
   --help      Show this help.
+
+Compatibility:
+  This function is retained for existing Codex-specific workflows.
+  Prefer agw_review_output for new generic/manual workflows.
 
 Commands:
   git branch --show-current
@@ -489,18 +558,7 @@ EOF_HELP
     return 0
   fi
 
-  agw__require_git_repo || return 1
-
-  local run_mode=0
-  if agw__is_run_mode "$@"; then
-    run_mode=1
-  fi
-
-  agw__run_cmd "$run_mode" git branch --show-current
-  agw__run_cmd "$run_mode" git status --short
-  agw__run_cmd "$run_mode" git diff --stat
-  agw__run_cmd "$run_mode" git diff --name-status
-  agw__run_cmd "$run_mode" git diff --check
+  agw_review_output "$@"
 }
 
 # @workflow commit-controlled-change
