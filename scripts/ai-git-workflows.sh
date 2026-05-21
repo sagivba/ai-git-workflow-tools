@@ -51,13 +51,41 @@ agw__require_git_repo() {
   }
 }
 
+agw__start_task_branch() {
+  local branch="$1"
+  local required_prefix="$2"
+  local run_mode="$3"
+
+  if [[ -z "$branch" ]]; then
+    echo "Error: branch name is required." >&2
+    return 1
+  fi
+
+  case "$branch" in
+    "$required_prefix"*)
+      ;;
+    *)
+      echo "Error: branch must start with ${required_prefix}." >&2
+      return 1
+      ;;
+  esac
+
+  agw__run_cmd "$run_mode" git fetch --prune origin
+  agw__run_cmd "$run_mode" git switch main
+  agw__run_cmd "$run_mode" git pull --ff-only origin main
+  agw__run_cmd "$run_mode" git status --short
+  agw__run_cmd "$run_mode" git log --oneline --decorate -5
+  agw__run_cmd "$run_mode" git switch -c "$branch"
+}
+
 agw_help() {
-  cat <<'EOF'
+  cat <<'EOF_HELP'
 ai-git-workflow-tools
 
 Available functions:
 
   agw_inspect_git_state
+  agw_start_task
   agw_start_codex_task
   agw_review_codex_output
   agw_commit_controlled_change
@@ -77,11 +105,14 @@ Examples:
   agw_inspect_git_state
   agw_inspect_git_state --run
 
+  agw_start_task --task T003 --slug improve-task-start-workflow
+  agw_start_task --task T003 --slug improve-task-start-workflow --run
+
   agw_start_codex_task --branch codex-cli/my-task
   agw_start_codex_task --branch codex-cli/my-task --run
 
   agw_create_tag --tag v1.0.0 --note "Initial stable workflow baseline" --run
-EOF
+EOF_HELP
 }
 
 # @workflow inspect-git-state
@@ -93,7 +124,7 @@ EOF
 # @requires git
 agw_inspect_git_state() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_inspect_git_state
 
 Purpose:
@@ -115,7 +146,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/inspect-git-state.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -133,6 +164,110 @@ EOF
   agw__run_cmd "$run_mode" git diff --name-only
 }
 
+# @workflow start-task
+# @title Start task branch
+# @doc docs/workflows/start-task.md
+# @summary Start from updated main and create a manual task branch.
+# @usage agw_start_task --task T003 --slug short-task-name [--run|-r]
+# @safe-default dry-run
+# @requires git
+agw_start_task() {
+  if [[ "${1:-}" == "--help" ]]; then
+    cat <<EOF_HELP
+agw_start_task
+
+Purpose:
+  Start a new manual task branch from updated main.
+
+Usage:
+  agw_start_task --task T003 --slug short-task-name [--run|-r]
+  agw_start_task --branch manual/T003-short-task-name [--run|-r]
+
+Options:
+  --task ID       Task identifier, for example T003.
+  --slug TEXT     Short lowercase branch slug, for example improve-task-start-workflow.
+  --branch NAME   Explicit branch name to create. Required prefix: manual/
+  --run, -r       Execute commands. Without this flag, commands are printed only.
+  --help          Show this help.
+
+Rules:
+  --branch cannot be combined with --task or --slug.
+  --task and --slug must be provided together.
+  The derived branch format is manual/<task>-<slug>.
+
+Commands:
+  git fetch --prune origin
+  git switch main
+  git pull --ff-only origin main
+  git status --short
+  git log --oneline --decorate -5
+  git switch -c <branch>
+
+Docs:
+  ${AGW_DOC_BASE_URL}/docs/workflows/start-task.md
+EOF_HELP
+    return 0
+  fi
+
+  agw__require_git_repo || return 1
+
+  local branch=""
+  local task=""
+  local slug=""
+  local run_mode=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --branch)
+        branch="${2:-}"
+        shift 2
+        ;;
+      --task)
+        task="${2:-}"
+        shift 2
+        ;;
+      --slug)
+        slug="${2:-}"
+        shift 2
+        ;;
+      --run|-r)
+        run_mode=1
+        shift
+        ;;
+      *)
+        echo "Error: unknown argument: $1" >&2
+        return 1
+        ;;
+    esac
+  done
+
+  if [[ -n "$branch" && ( -n "$task" || -n "$slug" ) ]]; then
+    echo "Error: --branch cannot be combined with --task or --slug." >&2
+    return 1
+  fi
+
+  if [[ -z "$branch" ]]; then
+    if [[ -z "$task" || -z "$slug" ]]; then
+      echo "Error: provide either --branch or both --task and --slug." >&2
+      return 1
+    fi
+
+    if [[ ! "$task" =~ ^T[0-9]+$ ]]; then
+      echo "Error: --task must match T<number>, for example T003." >&2
+      return 1
+    fi
+
+    if [[ ! "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+      echo "Error: --slug must use lowercase letters, digits, and hyphens." >&2
+      return 1
+    fi
+
+    branch="manual/${task}-${slug}"
+  fi
+
+  agw__start_task_branch "$branch" "manual/" "$run_mode"
+}
+
 # @workflow start-codex-task
 # @title Start Codex task branch
 # @doc docs/workflows/start-codex-task.md
@@ -142,7 +277,7 @@ EOF
 # @requires git
 agw_start_codex_task() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_start_codex_task
 
 Purpose:
@@ -152,7 +287,7 @@ Usage:
   agw_start_codex_task --branch codex-cli/<task-name> [--run|-r]
 
 Options:
-  --branch NAME   Branch name to create. Recommended prefix: codex-cli/
+  --branch NAME   Branch name to create. Required prefix: codex-cli/
   --run, -r       Execute commands. Without this flag, commands are printed only.
   --help          Show this help.
 
@@ -166,7 +301,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/start-codex-task.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -197,21 +332,7 @@ EOF
     return 1
   fi
 
-  case "$branch" in
-    codex-cli/*)
-      ;;
-    *)
-      echo "Error: branch must start with codex-cli/." >&2
-      return 1
-      ;;
-  esac
-
-  agw__run_cmd "$run_mode" git fetch --prune origin
-  agw__run_cmd "$run_mode" git switch main
-  agw__run_cmd "$run_mode" git pull --ff-only origin main
-  agw__run_cmd "$run_mode" git status --short
-  agw__run_cmd "$run_mode" git log --oneline --decorate -5
-  agw__run_cmd "$run_mode" git switch -c "$branch"
+  agw__start_task_branch "$branch" "codex-cli/" "$run_mode"
 }
 
 # @workflow review-codex-output
@@ -223,7 +344,7 @@ EOF
 # @requires git
 agw_review_codex_output() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_review_codex_output
 
 Purpose:
@@ -245,7 +366,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/review-codex-output.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -272,7 +393,7 @@ EOF
 # @requires git
 agw_commit_controlled_change() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_commit_controlled_change
 
 Purpose:
@@ -295,7 +416,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/commit-controlled-change.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -353,7 +474,7 @@ EOF
 # @requires optional:gh
 agw_push_and_pr() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_push_and_pr
 
 Purpose:
@@ -376,7 +497,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/push-and-pr.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -431,7 +552,7 @@ EOF
 # @requires git
 agw_post_merge_sync() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_post_merge_sync
 
 Purpose:
@@ -453,7 +574,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/post-merge-sync.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -480,7 +601,7 @@ EOF
 # @requires git
 agw_cleanup_branches() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_cleanup_branches
 
 Purpose:
@@ -506,7 +627,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/cleanup-branches.md
-EOF
+EOF_HELP
     return 0
   fi
 
@@ -561,7 +682,7 @@ EOF
 # @requires none
 agw_pre_tag_docs_review() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_pre_tag_docs_review
 
 Purpose:
@@ -584,11 +705,11 @@ Checklist:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/pre-tag-docs-review.md
-EOF
+EOF_HELP
     return 0
   fi
 
-  cat <<'EOF'
+  cat <<'EOF_HELP'
 Pre-tag documentation review checklist:
 
 [ ] README reflects the current state.
@@ -598,7 +719,7 @@ Pre-tag documentation review checklist:
 [ ] Known risks and limitations are documented.
 [ ] No unrelated local changes exist.
 [ ] The intended tag message is clear.
-EOF
+EOF_HELP
 }
 
 # @workflow create-and-verify-tag
@@ -610,7 +731,7 @@ EOF
 # @requires git
 agw_create_tag() {
   if [[ "${1:-}" == "--help" ]]; then
-    cat <<EOF
+    cat <<EOF_HELP
 agw_create_tag
 
 Purpose:
@@ -641,7 +762,7 @@ Commands:
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/create-and-verify-tag.md
-EOF
+EOF_HELP
     return 0
   fi
 
