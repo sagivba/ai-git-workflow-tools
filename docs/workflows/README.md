@@ -62,19 +62,25 @@ Use this workflow when starting a new implementation, documentation, or workflow
 Expected branch patterns:
 
 ```text
-codex-cli/<task-id>-<short-name>
 manual/<task-id>-<short-name>
+codex-cli/<task-id>-<short-name>
 docs/<short-name>
 fix/<short-name>
 ```
 
-The main recommended pattern for AI-assisted implementation work is:
+The main recommended pattern for manually applied task ZIP work is:
 
 ```text
-codex-cli/<task-id>-<short-name>
+manual/<task-id>-<short-name>
 ```
 
 Detailed documentation:
+
+```text
+docs/workflows/start-task.md
+```
+
+Legacy Codex-specific branch-start documentation remains available for compatibility:
 
 ```text
 docs/workflows/start-codex-task.md
@@ -232,6 +238,7 @@ Examples:
 ```bash
 agw_help
 agw_inspect_git_state
+agw_start_task
 agw_start_codex_task
 agw_pre_tag_docs_review
 agw_create_tag
@@ -320,14 +327,15 @@ This is especially important for AI-assisted work, where false confidence is a r
 The first useful version of this repository should cover:
 
 1. `agw_inspect_git_state`
-2. `agw_start_codex_task`
-3. `agw_review_output`
-4. `agw_commit_controlled_change`
-5. `agw_push_branch`
-6. `agw_post_merge_sync`
-7. `agw_cleanup_branches`
-8. `agw_pre_tag_docs_review`
-9. `agw_create_tag`
+2. `agw_start_task`
+3. `agw_start_codex_task`
+4. `agw_review_output`
+5. `agw_commit_controlled_change`
+6. `agw_push_branch`
+7. `agw_post_merge_sync`
+8. `agw_cleanup_branches`
+9. `agw_pre_tag_docs_review`
+10. `agw_create_tag`
 
 ## Definition of done for this overview
 
