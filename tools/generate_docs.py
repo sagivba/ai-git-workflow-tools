@@ -25,6 +25,8 @@ class WorkflowMeta:
     doc: str | None = None
     summary: str | None = None
     usage: str | None = None
+    safe_default: str | None = None
+    requires: str | None = None
 
 
 def parse_metadata(script_path: Path) -> list[WorkflowMeta]:
@@ -36,13 +38,17 @@ def parse_metadata(script_path: Path) -> list[WorkflowMeta]:
             key_value = line[3:].strip()
             if " " not in key_value:
                 continue
+
             key, value = key_value.split(" ", 1)
-            key = key.strip()
+            key = key.strip().replace("-", "_")
             value = value.strip()
+
             if key == "workflow" and current:
                 metas.append(WorkflowMeta(**current))
                 current = {}
-            current[key.replace("-", "_")] = value
+
+            current[key] = value
+
         elif current and line and not line.startswith("#"):
             metas.append(WorkflowMeta(**current))
             current = {}
@@ -55,13 +61,16 @@ def parse_metadata(script_path: Path) -> list[WorkflowMeta]:
 
 def check_docs(metas: list[WorkflowMeta]) -> list[str]:
     errors: list[str] = []
+
     for meta in metas:
         if not meta.doc:
             errors.append(f"{meta.workflow}: missing @doc")
             continue
+
         doc_path = ROOT / meta.doc
         if not doc_path.exists():
             errors.append(f"{meta.workflow}: missing docs file {meta.doc}")
+
     return errors
 
 
@@ -85,6 +94,7 @@ def main() -> int:
     print("Discovered workflows:")
     for meta in metas:
         print(f"- {meta.workflow}: {meta.doc}")
+
     print("TODO: implement auto-generation of Markdown sections.")
     return 0
 
