@@ -19,16 +19,10 @@ agw__is_run_mode() {
 }
 
 agw__print_cmd() {
-  local first=1
   printf '+'
   local arg
   for arg in "$@"; do
-    if [[ "$first" == "1" ]]; then
-      printf ' %q' "$arg"
-      first=0
-    else
-      printf ' %q' "$arg"
-    fi
+    printf ' %q' "$arg"
   done
   printf '\n'
 }
@@ -47,6 +41,108 @@ agw__run_cmd() {
 agw__require_git_repo() {
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
     echo "Error: not inside a Git repository." >&2
+    return 1
+  }
+}
+
+agw__current_branch() {
+  git branch --show-current
+}
+
+agw__require_clean_worktree() {
+  local status
+  status="$(git status --short)" || return 1
+
+  if [[ -n "$status" ]]; then
+    echo "Error: working tree must be clean before this operation." >&2
+    printf '%s\n' "$status" >&2
+    return 1
+  fi
+}
+
+agw__require_not_on_main() {
+  local branch
+  branch="$(agw__current_branch)" || return 1
+
+  if [[ "$branch" == "main" ]]; then
+    echo "Error: refusing to modify main directly." >&2
+    return 1
+  fi
+}
+
+agw__require_not_protected_branch() {
+  local branch="$1"
+
+  case "$branch" in
+    main|master)
+      echo "Error: refusing to delete protected branch: $branch" >&2
+      return 1
+      ;;
+  esac
+}
+
+agw__require_branch_absent() {
+  local branch="$1"
+
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "Error: local branch already exists: $branch" >&2
+    return 1
+  fi
+
+  if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    echo "Error: remote branch already exists: origin/$branch" >&2
+    return 1
+  fi
+}
+
+agw__require_local_branch_merged() {
+  local branch="$1"
+
+  if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "Error: local branch does not exist: $branch" >&2
+    return 1
+  fi
+
+  if ! git branch --merged main --format='%(refname:short)' | grep -Fxq "$branch"; then
+    echo "Error: refusing to delete local branch that is not merged into main: $branch" >&2
+    return 1
+  fi
+}
+
+agw__require_remote_branch_merged() {
+  local branch="$1"
+  local remote_branch="origin/$branch"
+
+  if ! git show-ref --verify --quiet "refs/remotes/$remote_branch"; then
+    echo "Error: remote branch does not exist: $remote_branch" >&2
+    return 1
+  fi
+
+  if ! git branch -r --merged origin/main --format='%(refname:short)' | grep -Fxq "$remote_branch"; then
+    echo "Error: refusing to delete remote branch that is not merged into origin/main: $remote_branch" >&2
+    return 1
+  fi
+}
+
+agw__require_tag_absent() {
+  local tag="$1"
+
+  if git tag --list "$tag" | grep -Fxq "$tag"; then
+    echo "Error: tag already exists locally: $tag" >&2
+    return 1
+  fi
+
+  if git ls-remote --tags origin "$tag" | grep -q "refs/tags/$tag"; then
+    echo "Error: tag already exists on origin: $tag" >&2
+    return 1
+  fi
+}
+
+agw__require_command() {
+  local command_name="$1"
+
+  command -v "$command_name" >/dev/null 2>&1 || {
+    echo "Error: required command not found: $command_name" >&2
     return 1
   }
 }
@@ -71,10 +167,22 @@ agw__start_task_branch() {
   esac
 
   agw__run_cmd "$run_mode" git fetch --prune origin
+
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_clean_worktree || return 1
+    agw__require_branch_absent "$branch" || return 1
+  fi
+
   agw__run_cmd "$run_mode" git switch main
   agw__run_cmd "$run_mode" git pull --ff-only origin main
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git log --oneline --decorate -5
+
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_clean_worktree || return 1
+    agw__require_branch_absent "$branch" || return 1
+  fi
+
   agw__run_cmd "$run_mode" git switch -c "$branch"
 }
 
@@ -99,6 +207,13 @@ Global convention:
 
   Default mode is dry-run.
   Use --run or -r to execute commands.
+
+Safety guards in --run mode:
+
+  - Task branch creation requires a clean working tree.
+  - Commit and push helpers refuse to modify main directly.
+  - Branch cleanup refuses protected or unmerged branches.
+  - Tag creation refuses duplicate local or remote tags.
 
 Examples:
 
@@ -194,6 +309,7 @@ Rules:
   --branch cannot be combined with --task or --slug.
   --task and --slug must be provided together.
   The derived branch format is manual/<task>-<slug>.
+  In --run mode, the working tree must be clean.
 
 Commands:
   git fetch --prune origin
@@ -290,6 +406,9 @@ Options:
   --branch NAME   Branch name to create. Required prefix: codex-cli/
   --run, -r       Execute commands. Without this flag, commands are printed only.
   --help          Show this help.
+
+Rules:
+  In --run mode, the working tree must be clean.
 
 Commands:
   git fetch --prune origin
@@ -408,6 +527,9 @@ Options:
   --run, -r        Execute commands. Without this flag, commands are printed only.
   --help           Show this help.
 
+Rules:
+  In --run mode, this function refuses to commit directly on main.
+
 Commands:
   git add <files>
   git diff --cached --stat
@@ -457,6 +579,10 @@ EOF_HELP
     return 1
   fi
 
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_not_on_main || return 1
+  fi
+
   # shellcheck disable=SC2086
   agw__run_cmd "$run_mode" git add $files
   agw__run_cmd "$run_mode" git diff --cached --stat
@@ -488,6 +614,10 @@ Options:
   --body-file PATH   Optional PR body file.
   --run, -r          Execute commands. Without this flag, commands are printed only.
   --help             Show this help.
+
+Rules:
+  In --run mode, this function refuses to push main directly.
+  When PR creation is requested, --body-file must point to an existing file and gh must be available.
 
 Commands:
   git branch --show-current
@@ -531,6 +661,19 @@ EOF_HELP
   local branch
   branch="$(git branch --show-current)" || return 1
 
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_not_on_main || return 1
+
+    if [[ -n "$body_file" && ! -f "$body_file" ]]; then
+      echo "Error: --body-file does not exist: $body_file" >&2
+      return 1
+    fi
+
+    if [[ -n "$title" && -n "$body_file" ]]; then
+      agw__require_command gh || return 1
+    fi
+  fi
+
   agw__run_cmd "$run_mode" git branch --show-current
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git push -u origin HEAD
@@ -565,6 +708,9 @@ Options:
   --run, -r   Execute commands. Without this flag, commands are printed only.
   --help      Show this help.
 
+Rules:
+  In --run mode, the working tree must be clean before switching to main.
+
 Commands:
   git fetch --prune origin
   git switch main
@@ -586,6 +732,11 @@ EOF_HELP
   fi
 
   agw__run_cmd "$run_mode" git fetch --prune origin
+
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_clean_worktree || return 1
+  fi
+
   agw__run_cmd "$run_mode" git switch main
   agw__run_cmd "$run_mode" git pull --ff-only origin main
   agw__run_cmd "$run_mode" git status --short
@@ -615,6 +766,11 @@ Options:
   --remote        Delete remote branch on origin instead of local branch.
   --run, -r       Execute commands. Without this flag, commands are printed only.
   --help          Show this help.
+
+Rules:
+  In --run mode, this function refuses to delete main or master.
+  Local branch deletion requires the branch to be merged into main.
+  Remote branch deletion requires origin/<branch> to be merged into origin/main.
 
 Commands:
   git fetch --prune origin
@@ -665,6 +821,15 @@ EOF_HELP
   agw__run_cmd "$run_mode" git branch -r --no-merged origin/main
 
   if [[ -n "$branch" ]]; then
+    if [[ "$run_mode" == "1" ]]; then
+      agw__require_not_protected_branch "$branch" || return 1
+      if [[ "$remote" == "1" ]]; then
+        agw__require_remote_branch_merged "$branch" || return 1
+      else
+        agw__require_local_branch_merged "$branch" || return 1
+      fi
+    fi
+
     if [[ "$remote" == "1" ]]; then
       agw__run_cmd "$run_mode" git push origin --delete "$branch"
     else
@@ -746,6 +911,10 @@ Options:
   --run, -r     Execute commands. Without this flag, commands are printed only.
   --help        Show this help.
 
+Rules:
+  In --run mode, the working tree must be clean.
+  In --run mode, the tag must not already exist locally or on origin.
+
 Commands:
   git fetch --prune origin
   git switch main
@@ -809,12 +978,23 @@ EOF_HELP
   fi
 
   agw__run_cmd "$run_mode" git fetch --prune origin
+
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_clean_worktree || return 1
+  fi
+
   agw__run_cmd "$run_mode" git switch main
   agw__run_cmd "$run_mode" git pull --ff-only origin main
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git log --oneline --decorate -5
   agw__run_cmd "$run_mode" git tag --list "$tag"
   agw__run_cmd "$run_mode" git ls-remote --tags origin "$tag"
+
+  if [[ "$run_mode" == "1" ]]; then
+    agw__require_clean_worktree || return 1
+    agw__require_tag_absent "$tag" || return 1
+  fi
+
   agw__run_cmd "$run_mode" git tag -a "$tag" -m "$tag - $note"
   agw__run_cmd "$run_mode" git push origin "$tag"
   agw__run_cmd "$run_mode" git tag --points-at HEAD
