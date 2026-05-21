@@ -40,7 +40,7 @@ In `--run` mode, safety guards prevent common mistakes such as committing direct
 
 Codex-specific helpers remain available for backward compatibility, but new workflows should prefer the generic function names.
 
-## Quick start
+## Quick start inside this repository
 
 ```bash
 source scripts/ai-git-workflows.sh
@@ -51,14 +51,46 @@ agw_inspect_git_state --help
 Dry-run examples:
 
 ```bash
-agw_start_task --task T005 --slug generic-review-output-alias
+agw_start_task --task T006 --slug install-use-from-existing-project
 agw_review_output
 ```
 
 Run example:
 
 ```bash
-agw_start_task --task T005 --slug generic-review-output-alias --run
+agw_start_task --task T006 --slug install-use-from-existing-project --run
+```
+
+## Use from another repository
+
+Clone this repository once:
+
+```bash
+mkdir -p ~/src
+git clone https://github.com/sagivba/ai-git-workflow-tools.git ~/src/ai-git-workflow-tools
+```
+
+From any other Git repository, load the workflow functions:
+
+```bash
+source ~/src/ai-git-workflow-tools/scripts/load-agw.sh
+agw_help
+agw_inspect_git_state
+```
+
+For a persistent shell setup, add this to `~/.bashrc`:
+
+```bash
+if [[ -f "$HOME/src/ai-git-workflow-tools/scripts/load-agw.sh" ]]; then
+  source "$HOME/src/ai-git-workflow-tools/scripts/load-agw.sh"
+fi
+```
+
+Detailed installation and external-repository usage docs:
+
+```text
+docs/install.md
+docs/use-from-existing-project.md
 ```
 
 ## Compatibility helpers
