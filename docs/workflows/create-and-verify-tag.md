@@ -19,75 +19,7 @@ Create an annotated release tag, push it, and verify that it exists locally and 
 - A meaningful tag note is available.
 - The tag does not already exist locally or remotely.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=create-and-verify-tag -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
-
-```bash
-git fetch --prune origin
-```
-Refresh remote refs before tagging.
-
-```bash
-git switch main
-```
-Ensure the tag is created on the integration branch.
-
-```bash
-git pull --ff-only origin main
-```
-Ensure local `main` matches `origin/main`.
-
-```bash
-git status --short | cat
-```
-Verify no local changes exist.
-
-```bash
-git log --oneline --decorate -5 | cat
-```
-Verify HEAD is the intended release commit.
-
-```bash
-git tag --list "vX.Y.Z" | cat
-```
-Check whether the tag already exists locally.
-
-```bash
-git ls-remote --tags origin "vX.Y.Z" | cat
-```
-Check whether the tag already exists remotely.
-
-```bash
-git tag -a "vX.Y.Z" -m "vX.Y.Z - <note>"
-```
-Create an annotated release tag.
-
-```bash
-git push origin "vX.Y.Z"
-```
-Push the tag to origin.
-
-```bash
-git tag --points-at HEAD | cat
-```
-Verify the tag points at local HEAD.
-
-```bash
-git show --no-patch --decorate "vX.Y.Z" | cat
-```
-Inspect the tag metadata.
-
-```bash
-git ls-remote --tags origin "vX.Y.Z" | cat
-```
-Verify the tag exists on origin.
-
-## Function usage
+## Syntax
 
 ```bash
 agw_create_tag --tag vX.Y.Z --note "Release note" [--run|-r]
@@ -95,22 +27,56 @@ agw_create_tag --tag vX.Y.Z --note "Release note" [--run|-r]
 
 ## Parameters
 
-- `--tag TAG`: Required. Release tag. Must match `vX.Y.Z`, for example `v1.2.0`.
-- `--note TEXT`: Required. Human-readable note for the annotated tag message.
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--tag TAG`: Required release tag. Must match `vX.Y.Z`, for example `v0.7.0`.
+- `--note TEXT`: Required human-readable note for the annotated tag message.
+- `--run`: Execute commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- Creating a tag on the wrong commit creates a misleading release point.
-- Reusing an existing tag name causes conflicts.
-- Lightweight tags lose useful release metadata.
-- Tagging without a note makes future audit harder.
+```bash
+agw_create_tag --tag v0.7.0 --note "Complete documentation iteration"
+```
 
-## Definition of done
+## `--run` example
 
-- The tag exists locally.
-- The tag exists on `origin`.
-- The tag points to the intended `main` commit.
-- The annotated message is clear.
-- The release documentation reflects the tagged state.
+```bash
+agw_create_tag --tag v0.7.0 --note "Complete documentation iteration" --run
+```
+
+## `-r` example
+
+```bash
+agw_create_tag --tag v0.7.0 --note "Complete documentation iteration" -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints the commands that would run.
+
+In run mode, it:
+
+1. fetches latest refs
+2. verifies the working tree is clean
+3. switches to `main`
+4. pulls `origin/main` with `--ff-only`
+5. prints short status and recent log
+6. checks for duplicate local and remote tags
+7. creates an annotated tag
+8. pushes the tag
+9. verifies local and remote tag state
+
+## Safety notes
+
+- Default mode is dry-run.
+- Real execution requires `--run` or `-r`.
+- In run mode, the working tree must be clean.
+- In run mode, duplicate local or remote tags are refused.
+- Do not run before `agw_pre_tag_docs_review`.
+
+## Related functions
+
+- `agw_pre_tag_docs_review`
+- `agw_post_merge_sync`
+- `agw_status`

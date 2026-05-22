@@ -4,64 +4,28 @@
 
 Review Codex or Codex CLI output before staging and committing changes.
 
-This workflow is retained for backward compatibility. New generic/manual workflows should prefer:
+This workflow is retained for legacy compatibility only.
+
+New generic/manual/ChatGPT ZIP workflows should use:
 
 ```bash
-agw_review_output [--run|-r]
+agw_review_output
 ```
 
 ## When to use
 
-- After Codex or Codex CLI changes files.
-- Before staging Codex-generated files for commit.
-- When maintaining an existing Codex-specific workflow.
+- Only when maintaining an existing Codex-specific workflow.
+- Only when an existing script or document still calls `agw_review_codex_output`.
 
-For manual edits, ChatGPT-guided edits, generated ZIP extraction, or general AI-assisted work, prefer:
-
-```text
-docs/workflows/review-output.md
-```
+For manual edits, ChatGPT-guided edits, generated ZIP extraction, or general AI-assisted work, prefer `docs/workflows/review-output.md`.
 
 ## Preconditions
 
 - The task objective is known.
 - The expected scope is known.
-- The repository contains unstaged or staged changes to review.
+- The repository contains changes to review.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=review-codex-output -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
-
-```bash
-git branch --show-current | cat
-```
-Confirm which branch is being reviewed.
-
-```bash
-git status --short | cat
-```
-Identify changed, deleted, staged, and untracked files.
-
-```bash
-git diff --stat | cat
-```
-Review the scale and distribution of changes.
-
-```bash
-git diff --name-status | cat
-```
-Review the exact file list and whether each file was modified, added, deleted, or renamed.
-
-```bash
-git diff --check | cat
-```
-Detect whitespace errors and common patch issues.
-
-## Function usage
+## Syntax
 
 ```bash
 agw_review_codex_output [--run|-r]
@@ -69,28 +33,39 @@ agw_review_codex_output [--run|-r]
 
 ## Parameters
 
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--run`: Execute review commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Compatibility
-
-This function delegates to the generic review behavior. It exists so older workflows and documentation do not break.
-
-New workflows should use:
+## Dry-run example
 
 ```bash
-agw_review_output [--run|-r]
+agw_review_codex_output
 ```
 
-## Risks
+## `--run` example
 
-- Codex output may include unrelated cleanup or refactoring.
-- Generated code may pass a superficial review but fail scope review.
-- Validation may be claimed but not actually run.
+```bash
+agw_review_codex_output --run
+```
 
-## Definition of done
+## `-r` example
 
-- Changed files match the task scope.
-- No unrelated changes are present or they are explicitly split out.
-- Validation run/not-run is documented.
-- The change is ready for controlled staging or requires a fix.
+```bash
+agw_review_codex_output -r
+```
+
+## Expected output / behavior
+
+This function delegates to the generic review behavior used by `agw_review_output`.
+
+## Safety notes
+
+- This function exists only for compatibility.
+- Prefer `agw_review_output` for new workflows.
+- Do not commit generated changes until file scope and validation status are understood.
+
+## Related functions
+
+- `agw_review_output`
+- `agw_start_codex_task`
