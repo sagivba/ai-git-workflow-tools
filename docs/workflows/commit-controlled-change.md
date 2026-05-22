@@ -2,76 +2,84 @@
 
 ## Purpose
 
-Stage and commit reviewed changes in a controlled and auditable way.
+Stage explicit files and create a clear commit after reviewing the staged diff.
 
 ## When to use
 
 - After Git state inspection.
-- After reviewing the diff.
-- After deciding that the change is ready to become a commit.
+- After reviewing generated ZIP or manual output.
+- After deciding that a specific file set is ready to become a commit.
 
 ## Preconditions
 
+- The current branch is not `main`.
 - The changed files have been reviewed.
 - The commit scope is clear.
 - The commit message is known.
 - Validation status is known.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=commit-controlled-change -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
+## Syntax
 
 ```bash
-git add <files>
-```
-Stage explicit files. Prefer this over blind `git add .` when possible.
-
-```bash
-git diff --cached --stat | cat
-```
-Review the staged change summary.
-
-```bash
-git diff --cached --check | cat
-```
-Detect whitespace or patch issues in staged changes.
-
-```bash
-git status --short | cat
-```
-Verify staged and unstaged state before committing.
-
-```bash
-git commit -m "<clear imperative message>"
-```
-Create the commit with a clear message.
-
-## Function usage
-
-```bash
-Planned function: agw_commit_controlled_change --message "..." --files <files...> [--run|-r]
+agw_commit_controlled_change --message "Commit message" --files "file1 file2" [--run|-r]
 ```
 
 ## Parameters
 
-- `--message TEXT`: Commit message.
-- `--files FILE...`: Files to stage.
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--message TEXT`: Required commit message.
+- `--files TEXT`: Required space-separated list of files to stage.
+- `--run`: Execute commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- `git add .` can stage unrelated files.
-- A vague commit message reduces future audit value.
-- Committing without staged diff review can include accidental changes.
+```bash
+agw_commit_controlled_change \
+  --message "Complete documentation iteration" \
+  --files "README.md docs/install.md"
+```
 
-## Definition of done
+## `--run` example
 
-- Only intended files are staged.
-- The staged diff has been checked.
-- The commit message is clear.
-- A commit exists for the controlled change.
+```bash
+agw_commit_controlled_change \
+  --message "Complete documentation iteration" \
+  --files "README.md docs/install.md" \
+  --run
+```
+
+## `-r` example
+
+```bash
+agw_commit_controlled_change \
+  --message "Complete documentation iteration" \
+  --files "README.md docs/install.md" \
+  -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints the commands that would stage files, inspect the cached diff, and commit.
+
+In run mode, it:
+
+1. refuses to commit directly on `main`
+2. stages the explicit files
+3. prints cached diff stat
+4. runs cached diff whitespace checks
+5. creates the commit
+
+## Safety notes
+
+- Default mode is dry-run.
+- Real execution requires `--run` or `-r`.
+- The function refuses to commit on `main` in run mode.
+- Prefer explicit file lists over `git add .`.
+- The `--files` value is space-separated; avoid file names with spaces.
+
+## Related functions
+
+- `agw_review_output`
+- `agw_push_and_pr`
+- `agw_inspect_git_state`

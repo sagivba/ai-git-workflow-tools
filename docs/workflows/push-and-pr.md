@@ -2,68 +2,76 @@
 
 ## Purpose
 
-Push a task branch and prepare a Pull Request through GitHub CLI or GitHub Web.
+Push the current task branch and optionally create a Pull Request through GitHub CLI.
 
 ## When to use
 
 - After a controlled commit is created.
 - When the task branch is ready for review.
-- When a PR should be opened or updated.
+- When a PR should be opened or prepared.
 
 ## Preconditions
 
 - The current branch is not `main`.
-- The working tree is clean or any remaining changes are intentional.
 - The branch has at least one commit to push.
+- The working tree is clean or any remaining changes are intentional.
 - The PR title and scope are known.
+- If creating the PR through CLI, `gh` is installed and authenticated.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=push-and-pr -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
+## Syntax
 
 ```bash
-git branch --show-current | cat
-```
-Verify the current branch.
-
-```bash
-git status --short | cat
-```
-Verify working tree state.
-
-```bash
-git push -u origin HEAD
-```
-Push the current branch and set upstream.
-
-```bash
-gh pr create --base main --head "$(git branch --show-current)" --title "<title>" --body "<body>"
-```
-Optional CLI path for PR creation.
-
-## Function usage
-
-```bash
-Planned function: agw_push_branch [--run|-r]
+agw_push_and_pr [--title "PR title"] [--body-file path] [--run|-r]
 ```
 
 ## Parameters
 
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--title TEXT`: Optional PR title.
+- `--body-file PATH`: Optional PR body file. If provided with `--title`, `gh pr create` is used.
+- `--run`: Execute commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- Pushing from the wrong branch can create a confusing PR.
-- A weak PR body loses validation and scope information.
-- CLI and Web PR creation paths can diverge unless the PR content is reviewed.
+```bash
+agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md
+```
 
-## Definition of done
+## `--run` example
 
-- The branch is pushed to `origin`.
-- A PR exists or a clear decision was made to create it through GitHub Web.
-- The PR body documents summary, scope, validation, not-run checks, and risks.
+```bash
+agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md --run
+```
+
+## `-r` example
+
+```bash
+agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints the branch/status/push commands and PR command when title and body file are supplied.
+
+In run mode, it:
+
+1. refuses to push directly from `main`
+2. checks the PR body file when provided
+3. checks for `gh` when PR creation is requested
+4. pushes the current branch with upstream tracking
+5. creates a PR if both `--title` and `--body-file` are provided
+
+If PR creation arguments are not both provided, it pushes the branch and prints guidance to create the PR through GitHub Web.
+
+## Safety notes
+
+- Default mode is dry-run.
+- Real execution requires `--run` or `-r`.
+- The function refuses to push from `main` in run mode.
+- Review the PR body before running with `--run`.
+
+## Related functions
+
+- `agw_commit_controlled_change`
+- `agw_post_merge_sync`

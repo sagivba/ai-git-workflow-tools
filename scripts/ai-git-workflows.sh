@@ -20,7 +20,7 @@ agw__is_run_mode() {
 }
 
 agw__print_cmd() {
-  printf '+'
+  printf '++'
   local arg
   for arg in "$@"; do
     printf ' %q' "$arg"
@@ -31,9 +31,7 @@ agw__print_cmd() {
 agw__run_cmd() {
   local run_mode="$1"
   shift
-
   agw__print_cmd "$@"
-
   if [[ "$run_mode" == "1" ]]; then
     "$@"
   fi
@@ -64,7 +62,6 @@ agw__tool_root() {
 
 agw__tool_git_ref() {
   local root="$1"
-
   if [[ -d "$root/.git" || -f "$root/.git" ]]; then
     git -C "$root" describe --tags --always --dirty 2>/dev/null || true
   fi
@@ -73,7 +70,6 @@ agw__tool_git_ref() {
 agw__require_clean_worktree() {
   local status
   status="$(git status --short)" || return 1
-
   if [[ -n "$status" ]]; then
     echo "Error: working tree must be clean before this operation." >&2
     printf '%s\n' "$status" >&2
@@ -84,7 +80,6 @@ agw__require_clean_worktree() {
 agw__require_not_on_main() {
   local branch
   branch="$(agw__current_branch)" || return 1
-
   if [[ "$branch" == "main" ]]; then
     echo "Error: refusing to modify main directly." >&2
     return 1
@@ -93,7 +88,6 @@ agw__require_not_on_main() {
 
 agw__require_not_protected_branch() {
   local branch="$1"
-
   case "$branch" in
     main|master)
       echo "Error: refusing to delete protected branch: $branch" >&2
@@ -104,12 +98,10 @@ agw__require_not_protected_branch() {
 
 agw__require_branch_absent() {
   local branch="$1"
-
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     echo "Error: local branch already exists: $branch" >&2
     return 1
   fi
-
   if git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
     echo "Error: remote branch already exists: origin/$branch" >&2
     return 1
@@ -118,12 +110,10 @@ agw__require_branch_absent() {
 
 agw__require_local_branch_merged() {
   local branch="$1"
-
   if ! git show-ref --verify --quiet "refs/heads/$branch"; then
     echo "Error: local branch does not exist: $branch" >&2
     return 1
   fi
-
   if ! git branch --merged main --format='%(refname:short)' | grep -Fxq "$branch"; then
     echo "Error: refusing to delete local branch that is not merged into main: $branch" >&2
     return 1
@@ -133,12 +123,10 @@ agw__require_local_branch_merged() {
 agw__require_remote_branch_merged() {
   local branch="$1"
   local remote_branch="origin/$branch"
-
   if ! git show-ref --verify --quiet "refs/remotes/$remote_branch"; then
     echo "Error: remote branch does not exist: $remote_branch" >&2
     return 1
   fi
-
   if ! git branch -r --merged origin/main --format='%(refname:short)' | grep -Fxq "$remote_branch"; then
     echo "Error: refusing to delete remote branch that is not merged into origin/main: $remote_branch" >&2
     return 1
@@ -147,12 +135,10 @@ agw__require_remote_branch_merged() {
 
 agw__require_tag_absent() {
   local tag="$1"
-
   if git tag --list "$tag" | grep -Fxq "$tag"; then
     echo "Error: tag already exists locally: $tag" >&2
     return 1
   fi
-
   if git ls-remote --tags origin "$tag" | grep -q "refs/tags/$tag"; then
     echo "Error: tag already exists on origin: $tag" >&2
     return 1
@@ -161,7 +147,6 @@ agw__require_tag_absent() {
 
 agw__require_command() {
   local command_name="$1"
-
   command -v "$command_name" >/dev/null 2>&1 || {
     echo "Error: required command not found: $command_name" >&2
     return 1
@@ -179,8 +164,7 @@ agw__start_task_branch() {
   fi
 
   case "$branch" in
-    "$required_prefix"*)
-      ;;
+    "$required_prefix"*) ;;
     *)
       echo "Error: branch must start with ${required_prefix}." >&2
       return 1
@@ -209,7 +193,6 @@ agw__start_task_branch() {
 
 agw__review_output_commands() {
   local run_mode="$1"
-
   agw__run_cmd "$run_mode" git branch --show-current
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git diff --stat
@@ -221,54 +204,92 @@ agw_help() {
   cat <<'EOF_HELP'
 ai-git-workflow-tools
 
-Available functions:
+Purpose:
+  Reusable Bash helpers for safe Git/GitHub workflows, ChatGPT-generated ZIP tasks,
+  controlled commits, PR preparation, merge sync, branch cleanup, and release tags.
 
+Recommended lifecycle:
+  clean main
+    -> move generated ZIP files to /tmp/agw-zips
+    -> source the tool
+    -> agw_version / agw_status
+    -> agw_start_task
+    -> unzip task output into the task branch
+    -> agw_review_output
+    -> tests and docs checks
+    -> agw_commit_controlled_change
+    -> agw_push_and_pr
+    -> merge through GitHub
+    -> agw_post_merge_sync
+    -> agw_cleanup_branches
+    -> agw_pre_tag_docs_review
+    -> agw_create_tag
+
+Read-only functions; no --run needed:
+  agw_help
   agw_version
   agw_status
+  agw_pre_tag_docs_review
+
+Dry-run by default functions:
   agw_inspect_git_state
   agw_start_task
-  agw_start_codex_task
+  agw_start_codex_task        legacy compatibility
   agw_review_output
-  agw_review_codex_output
+  agw_review_codex_output     legacy compatibility
   agw_commit_controlled_change
   agw_push_and_pr
   agw_post_merge_sync
   agw_cleanup_branches
-  agw_pre_tag_docs_review
   agw_create_tag
 
-Global convention:
-
+Execution convention:
   Default mode is dry-run.
   Use --run or -r to execute commands.
 
-Safety guards in --run mode:
-
-  - Task branch creation requires a clean working tree.
-  - Commit and push helpers refuse to modify main directly.
-  - Branch cleanup refuses protected or unmerged branches.
-  - Tag creation refuses duplicate local or remote tags.
-
-Compatibility note:
-
-  agw_start_codex_task and agw_review_codex_output remain available for existing workflows.
-  New generic workflows should prefer agw_start_task and agw_review_output.
-
-Examples:
-
+Examples: identify current setup
   agw_version
   agw_status
 
-  agw_inspect_git_state
-  agw_inspect_git_state --run
+Examples: start task branch
+  agw_start_task --task T008 --slug complete-documentation-iteration
+  agw_start_task --task T008 --slug complete-documentation-iteration --run
+  agw_start_task --task T008 --slug complete-documentation-iteration -r
 
-  agw_start_task --task T003 --slug improve-task-start-workflow
-  agw_start_task --task T003 --slug improve-task-start-workflow --run
-
+Examples: review output
   agw_review_output
   agw_review_output --run
+  agw_review_output -r
 
-  agw_create_tag --tag v1.0.0 --note "Initial stable workflow baseline" --run
+Examples: commit controlled change
+  agw_commit_controlled_change --message "Complete documentation iteration" --files "README.md docs/install.md"
+  agw_commit_controlled_change --message "Complete documentation iteration" --files "README.md docs/install.md" --run
+  agw_commit_controlled_change --message "Complete documentation iteration" --files "README.md docs/install.md" -r
+
+Examples: push and prepare PR
+  agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md
+  agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md --run
+  agw_push_and_pr --title "T008 Complete documentation iteration" --body-file /tmp/T008-pr-body.md -r
+
+Examples: post-merge cleanup
+  agw_post_merge_sync --run
+  agw_cleanup_branches --branch manual/T008-complete-documentation-iteration --run
+  agw_cleanup_branches --branch manual/T008-complete-documentation-iteration --remote --run
+
+Examples: tag
+  agw_pre_tag_docs_review
+  agw_create_tag --tag v0.7.0 --note "Complete documentation iteration"
+  agw_create_tag --tag v0.7.0 --note "Complete documentation iteration" --run
+  agw_create_tag --tag v0.7.0 --note "Complete documentation iteration" -r
+
+ZIP handling before branch creation:
+  mkdir -p /tmp/agw-zips
+  if ls *.zip >/dev/null 2>&1; then mv ./*.zip /tmp/agw-zips/; fi
+  git status --short | cat
+
+Legacy compatibility:
+  agw_start_codex_task and agw_review_codex_output remain available for existing workflows.
+  New generic workflows should prefer agw_start_task and agw_review_output.
 EOF_HELP
 }
 
@@ -293,6 +314,9 @@ Usage:
 Options:
   --help   Show this help.
 
+Notes:
+  This function is read-only. It does not require --run or -r.
+
 Output:
   tool version
   loaded script path
@@ -307,7 +331,6 @@ EOF_HELP
 
   local root
   root="$(agw__tool_root)" || return 1
-
   local ref
   ref="$(agw__tool_git_ref "$root")"
 
@@ -343,6 +366,9 @@ Usage:
 Options:
   --help   Show this help.
 
+Notes:
+  This function is read-only. It does not require --run or -r.
+
 Output:
   agw_version output
   current repository root
@@ -357,7 +383,6 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
   agw_version
   echo
   echo "current_repository: $(git rev-parse --show-toplevel)"
@@ -401,14 +426,9 @@ Docs:
 EOF_HELP
     return 0
   fi
-
   agw__require_git_repo || return 1
-
   local run_mode=0
-  if agw__is_run_mode "$@"; then
-    run_mode=1
-  fi
-
+  if agw__is_run_mode "$@"; then run_mode=1; fi
   agw__run_cmd "$run_mode" git branch --show-current
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git log --oneline --decorate -5
@@ -448,14 +468,6 @@ Rules:
   The derived branch format is manual/<task>-<slug>.
   In --run mode, the working tree must be clean.
 
-Commands:
-  git fetch --prune origin
-  git switch main
-  git pull --ff-only origin main
-  git status --short
-  git log --oneline --decorate -5
-  git switch -c <branch>
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/start-task.md
 EOF_HELP
@@ -463,34 +475,14 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local branch=""
-  local task=""
-  local slug=""
-  local run_mode=0
-
+  local branch="" task="" slug="" run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --branch)
-        branch="${2:-}"
-        shift 2
-        ;;
-      --task)
-        task="${2:-}"
-        shift 2
-        ;;
-      --slug)
-        slug="${2:-}"
-        shift 2
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --branch) branch="${2:-}"; shift 2 ;;
+      --task) task="${2:-}"; shift 2 ;;
+      --slug) slug="${2:-}"; shift 2 ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
 
@@ -498,33 +490,28 @@ EOF_HELP
     echo "Error: --branch cannot be combined with --task or --slug." >&2
     return 1
   fi
-
   if [[ -z "$branch" ]]; then
     if [[ -z "$task" || -z "$slug" ]]; then
       echo "Error: provide either --branch or both --task and --slug." >&2
       return 1
     fi
-
     if [[ ! "$task" =~ ^T[0-9]+$ ]]; then
       echo "Error: --task must match T<number>, for example T003." >&2
       return 1
     fi
-
     if [[ ! "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
       echo "Error: --slug must use lowercase letters, digits, and hyphens." >&2
       return 1
     fi
-
     branch="manual/${task}-${slug}"
   fi
-
   agw__start_task_branch "$branch" "manual/" "$run_mode"
 }
 
 # @workflow start-codex-task
 # @title Start Codex task branch
 # @doc docs/workflows/start-codex-task.md
-# @summary Start from updated main and create a codex-cli task branch.
+# @summary Legacy compatibility wrapper for creating codex-cli task branches; prefer agw_start_task for new workflows.
 # @usage agw_start_codex_task --branch codex-cli/<task-name> [--run|-r]
 # @safe-default dry-run
 # @requires git
@@ -534,7 +521,7 @@ agw_start_codex_task() {
 agw_start_codex_task
 
 Purpose:
-  Start a new Codex task branch from updated main.
+  Start a new Codex-style task branch from updated main.
 
 Usage:
   agw_start_codex_task --branch codex-cli/<task-name> [--run|-r]
@@ -544,20 +531,9 @@ Options:
   --run, -r       Execute commands. Without this flag, commands are printed only.
   --help          Show this help.
 
-Rules:
-  In --run mode, the working tree must be clean.
-
 Compatibility:
   This function is retained for existing Codex-specific workflows.
-  Prefer agw_start_task for new generic/manual task branches.
-
-Commands:
-  git fetch --prune origin
-  git switch main
-  git pull --ff-only origin main
-  git status --short
-  git log --oneline --decorate -5
-  git switch -c <branch>
+  Prefer agw_start_task for new generic/manual/ChatGPT ZIP task branches.
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/start-codex-task.md
@@ -566,32 +542,18 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local branch=""
-  local run_mode=0
-
+  local branch="" run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --branch)
-        branch="${2:-}"
-        shift 2
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --branch) branch="${2:-}"; shift 2 ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
-
   if [[ -z "$branch" ]]; then
     echo "Error: --branch is required." >&2
     return 1
   fi
-
   agw__start_task_branch "$branch" "codex-cli/" "$run_mode"
 }
 
@@ -608,7 +570,7 @@ agw_review_output() {
 agw_review_output
 
 Purpose:
-  Review repository changes after manual or AI-assisted work.
+  Review repository changes after manual, ChatGPT ZIP, or AI-assisted work.
 
 Usage:
   agw_review_output [--run|-r]
@@ -629,14 +591,9 @@ Docs:
 EOF_HELP
     return 0
   fi
-
   agw__require_git_repo || return 1
-
   local run_mode=0
-  if agw__is_run_mode "$@"; then
-    run_mode=1
-  fi
-
+  if agw__is_run_mode "$@"; then run_mode=1; fi
   agw__review_output_commands "$run_mode"
 }
 
@@ -664,21 +621,13 @@ Options:
 
 Compatibility:
   This function is retained for existing Codex-specific workflows.
-  Prefer agw_review_output for new generic/manual workflows.
-
-Commands:
-  git branch --show-current
-  git status --short
-  git diff --stat
-  git diff --name-status
-  git diff --check
+  Prefer agw_review_output for new generic/manual/ChatGPT ZIP workflows.
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/review-codex-output.md
 EOF_HELP
     return 0
   fi
-
   agw_review_output "$@"
 }
 
@@ -709,12 +658,6 @@ Options:
 Rules:
   In --run mode, this function refuses to commit directly on main.
 
-Commands:
-  git add <files>
-  git diff --cached --stat
-  git diff --cached --check
-  git commit -m <message>
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/commit-controlled-change.md
 EOF_HELP
@@ -722,46 +665,18 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local message=""
-  local files=""
-  local run_mode=0
-
+  local message="" files="" run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --message)
-        message="${2:-}"
-        shift 2
-        ;;
-      --files)
-        files="${2:-}"
-        shift 2
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --message) message="${2:-}"; shift 2 ;;
+      --files) files="${2:-}"; shift 2 ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
-
-  if [[ -z "$message" ]]; then
-    echo "Error: --message is required." >&2
-    return 1
-  fi
-
-  if [[ -z "$files" ]]; then
-    echo "Error: --files is required." >&2
-    return 1
-  fi
-
-  if [[ "$run_mode" == "1" ]]; then
-    agw__require_not_on_main || return 1
-  fi
-
+  if [[ -z "$message" ]]; then echo "Error: --message is required." >&2; return 1; fi
+  if [[ -z "$files" ]]; then echo "Error: --files is required." >&2; return 1; fi
+  if [[ "$run_mode" == "1" ]]; then agw__require_not_on_main || return 1; fi
   # shellcheck disable=SC2086
   agw__run_cmd "$run_mode" git add $files
   agw__run_cmd "$run_mode" git diff --cached --stat
@@ -772,7 +687,7 @@ EOF_HELP
 # @workflow push-and-pr
 # @title Push and prepare PR
 # @doc docs/workflows/push-and-pr.md
-# @summary Push current branch and optionally provide PR creation guidance.
+# @summary Push current branch and optionally create a PR through GitHub CLI.
 # @usage agw_push_and_pr [--title "PR title"] [--body-file path] [--run|-r]
 # @safe-default dry-run
 # @requires git
@@ -783,7 +698,7 @@ agw_push_and_pr() {
 agw_push_and_pr
 
 Purpose:
-  Push the current branch and prepare a Pull Request path.
+  Push the current branch and prepare or create a Pull Request.
 
 Usage:
   agw_push_and_pr [--title "PR title"] [--body-file path] [--run|-r]
@@ -798,12 +713,6 @@ Rules:
   In --run mode, this function refuses to push main directly.
   When PR creation is requested, --body-file must point to an existing file and gh must be available.
 
-Commands:
-  git branch --show-current
-  git status --short
-  git push -u origin HEAD
-  gh pr create --base main --head <current-branch> --title <title> --body-file <body-file>
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/push-and-pr.md
 EOF_HELP
@@ -811,52 +720,30 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local title=""
-  local body_file=""
-  local run_mode=0
-
+  local title="" body_file="" run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --title)
-        title="${2:-}"
-        shift 2
-        ;;
-      --body-file)
-        body_file="${2:-}"
-        shift 2
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --title) title="${2:-}"; shift 2 ;;
+      --body-file) body_file="${2:-}"; shift 2 ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
-
   local branch
   branch="$(git branch --show-current)" || return 1
-
   if [[ "$run_mode" == "1" ]]; then
     agw__require_not_on_main || return 1
-
     if [[ -n "$body_file" && ! -f "$body_file" ]]; then
       echo "Error: --body-file does not exist: $body_file" >&2
       return 1
     fi
-
     if [[ -n "$title" && -n "$body_file" ]]; then
       agw__require_command gh || return 1
     fi
   fi
-
   agw__run_cmd "$run_mode" git branch --show-current
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git push -u origin HEAD
-
   if [[ -n "$title" && -n "$body_file" ]]; then
     agw__run_cmd "$run_mode" gh pr create --base main --head "$branch" --title "$title" --body-file "$body_file"
   else
@@ -890,32 +777,16 @@ Options:
 Rules:
   In --run mode, the working tree must be clean before switching to main.
 
-Commands:
-  git fetch --prune origin
-  git switch main
-  git pull --ff-only origin main
-  git status --short
-  git log --oneline --decorate -5
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/post-merge-sync.md
 EOF_HELP
     return 0
   fi
-
   agw__require_git_repo || return 1
-
   local run_mode=0
-  if agw__is_run_mode "$@"; then
-    run_mode=1
-  fi
-
+  if agw__is_run_mode "$@"; then run_mode=1; fi
   agw__run_cmd "$run_mode" git fetch --prune origin
-
-  if [[ "$run_mode" == "1" ]]; then
-    agw__require_clean_worktree || return 1
-  fi
-
+  if [[ "$run_mode" == "1" ]]; then agw__require_clean_worktree || return 1; fi
   agw__run_cmd "$run_mode" git switch main
   agw__run_cmd "$run_mode" git pull --ff-only origin main
   agw__run_cmd "$run_mode" git status --short
@@ -951,15 +822,6 @@ Rules:
   Local branch deletion requires the branch to be merged into main.
   Remote branch deletion requires origin/<branch> to be merged into origin/main.
 
-Commands:
-  git fetch --prune origin
-  git branch --merged main
-  git branch --no-merged main
-  git branch -r --merged origin/main
-  git branch -r --no-merged origin/main
-  git branch --delete <branch>
-  git push origin --delete <branch>
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/cleanup-branches.md
 EOF_HELP
@@ -967,38 +829,20 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local branch=""
-  local remote=0
-  local run_mode=0
-
+  local branch="" remote=0 run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --branch)
-        branch="${2:-}"
-        shift 2
-        ;;
-      --remote)
-        remote=1
-        shift
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --branch) branch="${2:-}"; shift 2 ;;
+      --remote) remote=1; shift ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
-
   agw__run_cmd "$run_mode" git fetch --prune origin
   agw__run_cmd "$run_mode" git branch --merged main
   agw__run_cmd "$run_mode" git branch --no-merged main
   agw__run_cmd "$run_mode" git branch -r --merged origin/main
   agw__run_cmd "$run_mode" git branch -r --no-merged origin/main
-
   if [[ -n "$branch" ]]; then
     if [[ "$run_mode" == "1" ]]; then
       agw__require_not_protected_branch "$branch" || return 1
@@ -1008,7 +852,6 @@ EOF_HELP
         agw__require_local_branch_merged "$branch" || return 1
       fi
     fi
-
     if [[ "$remote" == "1" ]]; then
       agw__run_cmd "$run_mode" git push origin --delete "$branch"
     else
@@ -1038,27 +881,20 @@ Usage:
 Options:
   --help   Show this help.
 
-Checklist:
-  1. README reflects the current state.
-  2. TODO or status source is updated.
-  3. Stage or goal report is updated.
-  4. Validation run/not-run is documented.
-  5. Known risks and limitations are documented.
-  6. No unrelated local changes exist.
-  7. The intended tag message is clear.
+Notes:
+  This function is read-only. It does not require --run or -r.
 
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/pre-tag-docs-review.md
 EOF_HELP
     return 0
   fi
-
   cat <<'EOF_HELP'
 Pre-tag documentation review checklist:
 
 [ ] README reflects the current state.
 [ ] TODO or status source is updated.
-[ ] Stage or goal report is updated.
+[ ] Stage or goal report is updated when relevant.
 [ ] Validation run/not-run is documented.
 [ ] Known risks and limitations are documented.
 [ ] No unrelated local changes exist.
@@ -1094,20 +930,6 @@ Rules:
   In --run mode, the working tree must be clean.
   In --run mode, the tag must not already exist locally or on origin.
 
-Commands:
-  git fetch --prune origin
-  git switch main
-  git pull --ff-only origin main
-  git status --short
-  git log --oneline --decorate -5
-  git tag --list <tag>
-  git ls-remote --tags origin <tag>
-  git tag -a <tag> -m "<tag> - <note>"
-  git push origin <tag>
-  git tag --points-at HEAD
-  git show --no-patch --decorate <tag>
-  git ls-remote --tags origin <tag>
-
 Docs:
   ${AGW_DOC_BASE_URL}/docs/workflows/create-and-verify-tag.md
 EOF_HELP
@@ -1115,65 +937,33 @@ EOF_HELP
   fi
 
   agw__require_git_repo || return 1
-
-  local tag=""
-  local note=""
-  local run_mode=0
-
+  local tag="" note="" run_mode=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --tag)
-        tag="${2:-}"
-        shift 2
-        ;;
-      --note)
-        note="${2:-}"
-        shift 2
-        ;;
-      --run|-r)
-        run_mode=1
-        shift
-        ;;
-      *)
-        echo "Error: unknown argument: $1" >&2
-        return 1
-        ;;
+      --tag) tag="${2:-}"; shift 2 ;;
+      --note) note="${2:-}"; shift 2 ;;
+      --run|-r) run_mode=1; shift ;;
+      *) echo "Error: unknown argument: $1" >&2; return 1 ;;
     esac
   done
-
-  if [[ -z "$tag" ]]; then
-    echo "Error: --tag is required." >&2
-    return 1
-  fi
-
-  if [[ -z "$note" ]]; then
-    echo "Error: --note is required." >&2
-    return 1
-  fi
-
+  if [[ -z "$tag" ]]; then echo "Error: --tag is required." >&2; return 1; fi
+  if [[ -z "$note" ]]; then echo "Error: --note is required." >&2; return 1; fi
   if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "Error: tag must match vX.Y.Z, for example v1.2.0." >&2
     return 1
   fi
-
   agw__run_cmd "$run_mode" git fetch --prune origin
-
-  if [[ "$run_mode" == "1" ]]; then
-    agw__require_clean_worktree || return 1
-  fi
-
+  if [[ "$run_mode" == "1" ]]; then agw__require_clean_worktree || return 1; fi
   agw__run_cmd "$run_mode" git switch main
   agw__run_cmd "$run_mode" git pull --ff-only origin main
   agw__run_cmd "$run_mode" git status --short
   agw__run_cmd "$run_mode" git log --oneline --decorate -5
   agw__run_cmd "$run_mode" git tag --list "$tag"
   agw__run_cmd "$run_mode" git ls-remote --tags origin "$tag"
-
   if [[ "$run_mode" == "1" ]]; then
     agw__require_clean_worktree || return 1
     agw__require_tag_absent "$tag" || return 1
   fi
-
   agw__run_cmd "$run_mode" git tag -a "$tag" -m "$tag - $note"
   agw__run_cmd "$run_mode" git push origin "$tag"
   agw__run_cmd "$run_mode" git tag --points-at HEAD

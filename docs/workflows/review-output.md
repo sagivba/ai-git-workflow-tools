@@ -2,56 +2,24 @@
 
 ## Purpose
 
-Review manual, ChatGPT-guided, generated ZIP, Codex, Codex CLI, or other AI-assisted output before staging and committing changes.
+Review manual, ChatGPT-guided, generated ZIP, or other AI-assisted output before staging and committing changes.
 
 ## When to use
 
-- After an AI assistant changes files.
 - After extracting a task ZIP into the working tree.
-- After a manual editing session.
+- After manual edits.
+- After an AI assistant changes files.
 - Before staging files for commit.
-- Before accepting a generated implementation.
+- Before accepting a generated implementation or documentation change.
 
 ## Preconditions
 
 - The task objective is known.
 - The expected scope is known.
-- The repository contains unstaged or staged changes to review.
+- The repository contains changes to review.
+- The current branch is the intended task branch.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=review-output -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
-
-```bash
-git branch --show-current | cat
-```
-Confirm which branch is being reviewed.
-
-```bash
-git status --short | cat
-```
-Identify changed, deleted, staged, and untracked files.
-
-```bash
-git diff --stat | cat
-```
-Review the scale and distribution of changes.
-
-```bash
-git diff --name-status | cat
-```
-Review the exact file list and whether each file was modified, added, deleted, or renamed.
-
-```bash
-git diff --check | cat
-```
-Detect whitespace errors and common patch issues.
-
-## Function usage
+## Syntax
 
 ```bash
 agw_review_output [--run|-r]
@@ -59,33 +27,53 @@ agw_review_output [--run|-r]
 
 ## Parameters
 
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--run`: Execute review commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Compatibility
-
-For existing Codex-specific workflows, the legacy function remains available:
+## Dry-run example
 
 ```bash
-agw_review_codex_output [--run|-r]
+agw_review_output
 ```
 
-New workflows should prefer:
+## `--run` example
 
 ```bash
-agw_review_output [--run|-r]
+agw_review_output --run
 ```
 
-## Risks
+## `-r` example
 
+```bash
+agw_review_output -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints the review commands.
+
+In run mode, it executes:
+
+```bash
+git branch --show-current
+git status --short
+git diff --stat
+git diff --name-status
+git diff --check
+```
+
+Use the output to decide whether the ZIP or edits match the intended task scope.
+
+## Safety notes
+
+- Generated ZIP files can contain unexpected files.
 - AI output may include unrelated cleanup or refactoring.
-- Generated code may pass a superficial review but fail scope review.
 - Validation may be claimed but not actually run.
-- Extracted ZIP files may include unexpected files if the task scope was too broad.
+- Do not commit until changed files and validation status are understood.
 
-## Definition of done
+## Related functions
 
-- Changed files match the task scope.
-- No unrelated changes are present or they are explicitly split out.
-- Validation run/not-run is documented.
-- The change is ready for controlled staging or requires a fix.
+- `agw_inspect_git_state`
+- `agw_commit_controlled_change`
+- `agw_review_codex_output` legacy compatibility only

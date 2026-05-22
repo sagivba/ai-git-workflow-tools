@@ -10,46 +10,14 @@ Create a compact snapshot of the current Git repository state before making deci
 - Before PR creation.
 - Before merge or cleanup.
 - Before creating a tag.
-- After manual edits or AI-generated changes.
+- After manual edits or generated ZIP extraction.
+- After an AI assistant changes files.
 
 ## Preconditions
 
 - The current directory is inside a Git repository.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=inspect-git-state -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
-
-```bash
-git branch --show-current | cat
-```
-Show the current branch name.
-
-```bash
-git status --short | cat
-```
-Show modified, deleted, staged, and untracked files in compact form.
-
-```bash
-git log --oneline --decorate -5 | cat
-```
-Show recent commits and refs.
-
-```bash
-git diff --stat | cat
-```
-Show a high-level summary of unstaged changes.
-
-```bash
-git diff --name-only | cat
-```
-Show the list of changed files.
-
-## Function usage
+## Syntax
 
 ```bash
 agw_inspect_git_state [--run|-r]
@@ -57,18 +25,50 @@ agw_inspect_git_state [--run|-r]
 
 ## Parameters
 
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--run`: Execute the inspection commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- Skipping inspection can lead to committing unrelated files.
-- Deleted files can be missed if `status` is not reviewed.
-- AI tools may change files outside the expected scope.
+```bash
+agw_inspect_git_state
+```
 
-## Definition of done
+## `--run` example
 
-- The current branch is known.
-- The changed file list is known.
-- Unexpected files are identified before further action.
-- The user can decide whether to continue, fix, split, stash, or restore.
+```bash
+agw_inspect_git_state --run
+```
+
+## `-r` example
+
+```bash
+agw_inspect_git_state -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints these inspection commands:
+
+```bash
+git branch --show-current
+git status --short
+git log --oneline --decorate -5
+git diff --stat
+git diff --name-only
+```
+
+In run mode, it executes them and prints the current branch, short status, recent commits, diff stat, and changed file list.
+
+## Safety notes
+
+- This workflow is inspection-oriented, but the function still follows the global dry-run convention.
+- It does not intentionally change repository state.
+- Review deleted and untracked files carefully before committing.
+
+## Related functions
+
+- `agw_status`
+- `agw_review_output`
+- `agw_commit_controlled_change`

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Identify and remove branches that are already merged, while preserving unmerged work.
+Inspect merged and unmerged branches and optionally delete a confirmed safe local or remote branch.
 
 ## When to use
 
@@ -13,68 +13,76 @@ Identify and remove branches that are already merged, while preserving unmerged 
 ## Preconditions
 
 - Local `main` is synced with `origin/main`.
-- The user understands which branch or branches are safe to delete.
-- No unmerged branch should be deleted unless explicitly intended.
+- The user understands which branch is safe to delete.
+- No unmerged branch should be deleted unless that is intentional and handled outside this helper.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=cleanup-branches -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
+## Syntax
 
 ```bash
-git branch --merged main | cat
-```
-List local branches merged into `main`.
-
-```bash
-git branch --no-merged main | cat
-```
-List local branches not merged into `main`.
-
-```bash
-git branch -r --merged origin/main | cat
-```
-List remote branches merged into `origin/main`.
-
-```bash
-git branch -r --no-merged origin/main | cat
-```
-List remote branches not merged into `origin/main`.
-
-```bash
-git branch --delete <branch>
-```
-Delete a safe local merged branch.
-
-```bash
-git push origin --delete <branch>
-```
-Delete a safe remote merged branch.
-
-## Function usage
-
-```bash
-Planned function: agw_cleanup_branches --branch <branch> [--remote] [--run|-r]
+agw_cleanup_branches [--branch name] [--remote] [--run|-r]
 ```
 
 ## Parameters
 
 - `--branch NAME`: Branch to delete.
-- `--remote`: Also delete remote branch from `origin`.
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--remote`: Delete the remote branch on `origin` instead of the local branch.
+- `--run`: Execute commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- Deleting an unmerged branch can lose work.
-- Local and remote merge status can differ.
-- Remote deletion should not be performed from memory.
+```bash
+agw_cleanup_branches --branch manual/T008-complete-documentation-iteration
+```
 
-## Definition of done
+## `--run` example
 
-- Merged and unmerged branches were reviewed.
-- Only confirmed safe branches were deleted.
-- Branch lists are rechecked after cleanup.
+```bash
+agw_cleanup_branches --branch manual/T008-complete-documentation-iteration --run
+```
+
+Remote deletion with `--run`:
+
+```bash
+agw_cleanup_branches --branch manual/T008-complete-documentation-iteration --remote --run
+```
+
+## `-r` example
+
+```bash
+agw_cleanup_branches --branch manual/T008-complete-documentation-iteration -r
+```
+
+Remote deletion with `-r`:
+
+```bash
+agw_cleanup_branches --branch manual/T008-complete-documentation-iteration --remote -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints branch inspection commands and the deletion command that would run.
+
+In run mode, it:
+
+1. fetches latest refs
+2. prints merged and unmerged local branches
+3. prints merged and unmerged remote branches
+4. refuses to delete protected branches
+5. refuses to delete a local branch not merged into `main`
+6. refuses to delete a remote branch not merged into `origin/main`
+7. deletes the requested branch only after safety checks pass
+
+## Safety notes
+
+- Default mode is dry-run.
+- Real execution requires `--run` or `-r`.
+- The function refuses to delete `main` or `master`.
+- Local deletion requires merge into `main`.
+- Remote deletion requires merge into `origin/main`.
+
+## Related functions
+
+- `agw_post_merge_sync`
+- `agw_start_task`

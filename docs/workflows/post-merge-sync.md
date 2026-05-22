@@ -9,60 +9,65 @@ Synchronize local `main` after a PR has been merged through GitHub.
 - After merging a PR in GitHub Web.
 - Before starting a new task after a merge.
 - Before creating a release tag.
+- Before branch cleanup.
 
 ## Preconditions
 
 - The PR has been merged.
 - `main` is the integration branch.
-- There are no local changes that should block switching branches.
+- No local changes should block switching branches.
 
-## Commands
-
-<!-- AUTO-GENERATED:START workflow=post-merge-sync -->
-The generated command/help block for this workflow should be inserted here by `tools/generate_docs.py`.
-<!-- AUTO-GENERATED:END -->
-
-### Command sequence
+## Syntax
 
 ```bash
-git switch main
-```
-Switch to the integration branch.
-
-```bash
-git pull --ff-only origin main
-```
-Synchronize local `main` with `origin/main` without creating a merge commit.
-
-```bash
-git status --short | cat
-```
-Verify local state is clean.
-
-```bash
-git log --oneline --decorate -5 | cat
-```
-Verify the latest commits and refs.
-
-## Function usage
-
-```bash
-Planned function: agw_post_merge_sync [--run|-r]
+agw_post_merge_sync [--run|-r]
 ```
 
 ## Parameters
 
-- `--run`, `-r`: Execute commands. Without this flag, commands are printed only.
+- `--run`: Execute commands.
+- `-r`: Short form for `--run`.
 - `--help`: Show function help.
 
-## Risks
+## Dry-run example
 
-- Starting a new task before syncing `main` can base work on stale code.
-- Using plain `git pull` can create an unintended merge commit.
-- Uncommitted local changes can block or complicate branch switching.
+```bash
+agw_post_merge_sync
+```
 
-## Definition of done
+## `--run` example
 
-- Local `main` is current with `origin/main`.
-- The working tree is clean.
-- The latest merge is visible in the local log.
+```bash
+agw_post_merge_sync --run
+```
+
+## `-r` example
+
+```bash
+agw_post_merge_sync -r
+```
+
+## Expected output / behavior
+
+In dry-run mode, the function prints the commands that would run.
+
+In run mode, it:
+
+1. fetches latest refs from `origin`
+2. verifies the working tree is clean before switching
+3. switches to `main`
+4. pulls `origin/main` with `--ff-only`
+5. prints short status and recent log
+
+## Safety notes
+
+- Default mode is dry-run.
+- Real execution requires `--run` or `-r`.
+- In run mode, the working tree must be clean before switching to `main`.
+- Use before tagging or cleanup.
+
+## Related functions
+
+- `agw_push_and_pr`
+- `agw_cleanup_branches`
+- `agw_create_tag`
